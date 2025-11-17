@@ -15,6 +15,11 @@ from sklearn.model_selection import train_test_split
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.neural_network import MLPClassifier
+from sklearn.naive_bayes import GaussianNB, MultinomialNB
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.multiclass import OneVsRestClassifier
 from sklearn.metrics import accuracy_score
 import PyPDF2
 import pdfplumber
@@ -269,14 +274,22 @@ if 'clf_lr_calibrated' not in st.session_state:
     st.session_state.clf_lr_calibrated = None
 if 'clf_rf_calibrated' not in st.session_state:
     st.session_state.clf_rf_calibrated = None
+if 'clf_mlp_calibrated' not in st.session_state:
+    st.session_state.clf_mlp_calibrated = None
+if 'clf_gnb_calibrated' not in st.session_state:
+    st.session_state.clf_gnb_calibrated = None
+if 'clf_dt_calibrated' not in st.session_state:
+    st.session_state.clf_dt_calibrated = None
+if 'clf_knn_calibrated' not in st.session_state:
+    st.session_state.clf_knn_calibrated = None
 if 'word_vectorizer' not in st.session_state:
     st.session_state.word_vectorizer = None
 if 'le' not in st.session_state:
     st.session_state.le = None
-if 'weight_lr' not in st.session_state:
-    st.session_state.weight_lr = None
-if 'weight_rf' not in st.session_state:
-    st.session_state.weight_rf = None
+if 'model_weights' not in st.session_state:
+    st.session_state.model_weights = {}
+if 'model_accuracies' not in st.session_state:
+    st.session_state.model_accuracies = {}
 
 # Helper function to clean resume text
 def cleanResume(resumeText):
@@ -355,10 +368,19 @@ def load_data():
     return resumeDataSet
 
 def train_models():
-    """Train the calibrated models"""
-    with st.spinner("🔄 Loading dataset and training models... This may take a few minutes."):
-        # Load data
+    """Train all 6 calibrated models"""
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    
+    try:
+        # Step 1: Load data
+        status_text.text("📊 Step 1/8: Loading dataset...")
+        progress_bar.progress(5)
         resumeDataSet = load_data()
+        
+        # Step 2: Prepare data
+        status_text.text("🔧 Step 2/8: Preparing data (encoding, vectorizing)...")
+        progress_bar.progress(10)
         
         # Encode categories
         le = LabelEncoder()
@@ -378,49 +400,158 @@ def train_models():
             shuffle=True, stratify=requiredTarget
         )
         
-        # Train calibrated Logistic Regression
-        with st.spinner("Training Logistic Regression..."):
-            clf_lr_calibrated = CalibratedClassifierCV(
-                LogisticRegression(max_iter=2000, C=10.0, class_weight='balanced'),
-                method='isotonic',
-                cv=5
-            )
-            clf_lr_calibrated.fit(X_train.toarray(), y_train)
+        X_train_dense = X_train.toarray()
+        X_test_dense = X_test.toarray()
         
-        # Train calibrated Random Forest
-        with st.spinner("Training Random Forest..."):
-            clf_rf_calibrated = CalibratedClassifierCV(
-                RandomForestClassifier(n_estimators=200, max_depth=20, random_state=42, class_weight='balanced'),
-                method='isotonic',
-                cv=5
-            )
-            clf_rf_calibrated.fit(X_train.toarray(), y_train)
+        models = {}
+        predictions = {}
+        accuracies = {}
         
-        # Calculate weights
-        pred_lr_cal = clf_lr_calibrated.predict(X_test.toarray())
-        pred_rf_cal = clf_rf_calibrated.predict(X_test.toarray())
+        # Step 3: Train Logistic Regression
+        status_text.text("🤖 Step 3/8: Training Calibrated Logistic Regression...")
+        progress_bar.progress(20)
+        clf_lr_calibrated = CalibratedClassifierCV(
+            LogisticRegression(max_iter=2000, C=10.0, class_weight='balanced'),
+            method='isotonic',
+            cv=5
+        )
+        clf_lr_calibrated.fit(X_train_dense, y_train)
+        models['lr'] = clf_lr_calibrated
+        predictions['lr'] = clf_lr_calibrated.predict(X_test_dense)
+        accuracies['lr'] = accuracy_score(y_test, predictions['lr'])
         
-        acc_lr = accuracy_score(y_test, pred_lr_cal)
-        acc_rf = accuracy_score(y_test, pred_rf_cal)
+        # Step 4: Train Random Forest
+        status_text.text("🌲 Step 4/8: Training Calibrated Random Forest...")
+        progress_bar.progress(35)
+        clf_rf_calibrated = CalibratedClassifierCV(
+            RandomForestClassifier(n_estimators=200, max_depth=20, random_state=42, class_weight='balanced'),
+            method='isotonic',
+            cv=5
+        )
+        clf_rf_calibrated.fit(X_train_dense, y_train)
+        models['rf'] = clf_rf_calibrated
+        predictions['rf'] = clf_rf_calibrated.predict(X_test_dense)
+        accuracies['rf'] = accuracy_score(y_test, predictions['rf'])
         
-        total_acc = acc_lr + acc_rf
-        weight_lr = acc_lr / total_acc
-        weight_rf = acc_rf / total_acc
+        # Step 5: Train MLP Neural Network
+        status_text.text("🧠 Step 5/8: Training Calibrated MLP Neural Network...")
+        progress_bar.progress(50)
+        clf_mlp_calibrated = CalibratedClassifierCV(
+            MLPClassifier(alpha=1, max_iter=1000, random_state=42),
+            method='isotonic',
+            cv=5
+        )
+        clf_mlp_calibrated.fit(X_train, y_train)  # MLP can use sparse
+        models['mlp'] = clf_mlp_calibrated
+        predictions['mlp'] = clf_mlp_calibrated.predict(X_test)
+        accuracies['mlp'] = accuracy_score(y_test, predictions['mlp'])
+        
+        # Step 6: Train Multinomial Naive Bayes (better for text/TF-IDF than GaussianNB)
+        status_text.text("📊 Step 6/8: Training Calibrated Multinomial Naive Bayes...")
+        progress_bar.progress(65)
+        # Use MultinomialNB instead of GaussianNB for text data (TF-IDF features)
+        # MultinomialNB works better with sparse matrices and non-negative features
+        clf_gnb_calibrated = CalibratedClassifierCV(
+            OneVsRestClassifier(MultinomialNB(alpha=1.0)),
+            method='isotonic',
+            cv=5
+        )
+        clf_gnb_calibrated.fit(X_train, y_train)  # Can use sparse matrix
+        models['gnb'] = clf_gnb_calibrated
+        predictions['gnb'] = clf_gnb_calibrated.predict(X_test)
+        accuracies['gnb'] = accuracy_score(y_test, predictions['gnb'])
+        
+        # Step 7: Train Decision Tree
+        status_text.text("🌳 Step 7/8: Training Calibrated Decision Tree...")
+        progress_bar.progress(80)
+        # Use min_samples_split and min_samples_leaf to prevent NaN issues
+        clf_dt_calibrated = CalibratedClassifierCV(
+            OneVsRestClassifier(DecisionTreeClassifier(
+                random_state=42, 
+                class_weight='balanced',
+                min_samples_split=5,
+                min_samples_leaf=2,
+                max_depth=15  # Limit depth to prevent overfitting
+            )),
+            method='isotonic',
+            cv=5
+        )
+        clf_dt_calibrated.fit(X_train_dense, y_train)
+        models['dt'] = clf_dt_calibrated
+        predictions['dt'] = clf_dt_calibrated.predict(X_test_dense)
+        accuracies['dt'] = accuracy_score(y_test, predictions['dt'])
+        
+        # Step 8: Train K-Nearest Neighbors
+        status_text.text("📍 Step 8/8: Training Calibrated K-Nearest Neighbors...")
+        progress_bar.progress(90)
+        clf_knn_calibrated = CalibratedClassifierCV(
+            OneVsRestClassifier(KNeighborsClassifier()),
+            method='isotonic',
+            cv=5
+        )
+        clf_knn_calibrated.fit(X_train, y_train)  # KNN can use sparse
+        models['knn'] = clf_knn_calibrated
+        predictions['knn'] = clf_knn_calibrated.predict(X_test)
+        accuracies['knn'] = accuracy_score(y_test, predictions['knn'])
+        
+        # Calculate weights based on accuracies
+        total_acc = sum(accuracies.values())
+        model_weights = {name: acc / total_acc for name, acc in accuracies.items()}
         
         # Store in session state
-        st.session_state.clf_lr_calibrated = clf_lr_calibrated
-        st.session_state.clf_rf_calibrated = clf_rf_calibrated
+        st.session_state.clf_lr_calibrated = models['lr']
+        st.session_state.clf_rf_calibrated = models['rf']
+        st.session_state.clf_mlp_calibrated = models['mlp']
+        st.session_state.clf_gnb_calibrated = models['gnb']
+        st.session_state.clf_dt_calibrated = models['dt']
+        st.session_state.clf_knn_calibrated = models['knn']
         st.session_state.word_vectorizer = word_vectorizer
         st.session_state.le = le
-        st.session_state.weight_lr = weight_lr
-        st.session_state.weight_rf = weight_rf
+        st.session_state.model_weights = model_weights
+        st.session_state.model_accuracies = accuracies
         st.session_state.models_trained = True
         
+        progress_bar.progress(100)
+        status_text.text("✅ Training Complete!")
+        
+        # Display training results
+        st.success("🎉 All 6 models trained successfully!")
+        
+        # Create results display
+        model_names = {
+            'lr': 'Logistic Regression',
+            'rf': 'Random Forest',
+            'mlp': 'MLP Neural Network',
+            'gnb': 'Multinomial Naive Bayes',
+            'dt': 'Decision Tree',
+            'knn': 'K-Nearest Neighbors'
+        }
+        
+        results_text = "**Training Results:**\n\n"
+        for key, name in model_names.items():
+            results_text += f"- ✅ {name}: **{accuracies[key]*100:.2f}%** (Weight: {model_weights[key]*100:.1f}%)\n"
+        
+        st.info(results_text)
+        st.info("📊 All 6 models are now ready for weighted ensemble predictions!")
+        
         return True
+        
+    except Exception as e:
+        status_text.text("❌ Training failed!")
+        st.error(f"Error during training: {str(e)}")
+        import traceback
+        st.code(traceback.format_exc())
+        return False
+    finally:
+        # Clear progress indicators after a delay
+        import time
+        time.sleep(1)
+        progress_bar.empty()
+        status_text.empty()
 
 # High-confidence prediction function
 def predict_with_high_confidence(resume_text, min_confidence=0.90):
-    """Predict with high confidence using calibrated ensemble"""
+    """Predict with high confidence using weighted ensemble of all 6 calibrated models"""
     if not st.session_state.models_trained:
         return None
     
@@ -429,12 +560,74 @@ def predict_with_high_confidence(resume_text, min_confidence=0.90):
     text_vector = st.session_state.word_vectorizer.transform([cleaned_text])
     text_dense = text_vector.toarray()
     
-    # Get probabilities from both models
-    prob_lr = st.session_state.clf_lr_calibrated.predict_proba(text_dense)[0]
-    prob_rf = st.session_state.clf_rf_calibrated.predict_proba(text_dense)[0]
+    # Get probabilities from all 6 calibrated models with error handling
+    weights = st.session_state.model_weights
+    probabilities = {}
+    valid_weights = {}
     
-    # Weighted ensemble
-    ensemble_probs = st.session_state.weight_lr * prob_lr + st.session_state.weight_rf * prob_rf
+    try:
+        prob_lr = st.session_state.clf_lr_calibrated.predict_proba(text_dense)[0]
+        if not np.isnan(prob_lr).any():
+            probabilities['lr'] = prob_lr
+            valid_weights['lr'] = weights['lr']
+    except Exception:
+        pass
+    
+    try:
+        prob_rf = st.session_state.clf_rf_calibrated.predict_proba(text_dense)[0]
+        if not np.isnan(prob_rf).any():
+            probabilities['rf'] = prob_rf
+            valid_weights['rf'] = weights['rf']
+    except Exception:
+        pass
+    
+    try:
+        prob_mlp = st.session_state.clf_mlp_calibrated.predict_proba(text_vector)[0]
+        if not np.isnan(prob_mlp).any():
+            probabilities['mlp'] = prob_mlp
+            valid_weights['mlp'] = weights['mlp']
+    except Exception:
+        pass
+    
+    try:
+        prob_gnb = st.session_state.clf_gnb_calibrated.predict_proba(text_vector)[0]
+        if not np.isnan(prob_gnb).any():
+            probabilities['gnb'] = prob_gnb
+            valid_weights['gnb'] = weights['gnb']
+    except Exception:
+        pass
+    
+    try:
+        prob_dt = st.session_state.clf_dt_calibrated.predict_proba(text_dense)[0]
+        if not np.isnan(prob_dt).any():
+            probabilities['dt'] = prob_dt
+            valid_weights['dt'] = weights['dt']
+    except Exception:
+        pass
+    
+    try:
+        prob_knn = st.session_state.clf_knn_calibrated.predict_proba(text_vector)[0]
+        if not np.isnan(prob_knn).any():
+            probabilities['knn'] = prob_knn
+            valid_weights['knn'] = weights['knn']
+    except Exception:
+        pass
+    
+    # Check if we have at least one valid model
+    if not probabilities:
+        return None
+    
+    # Normalize weights for valid models only
+    total_valid_weight = sum(valid_weights.values())
+    if total_valid_weight == 0:
+        return None
+    
+    normalized_weights = {k: v / total_valid_weight for k, v in valid_weights.items()}
+    
+    # Weighted ensemble of valid models
+    ensemble_probs = np.zeros_like(list(probabilities.values())[0])
+    for model_key in probabilities.keys():
+        ensemble_probs += normalized_weights[model_key] * probabilities[model_key]
     
     # Get top prediction
     predicted_idx = int(np.argmax(ensemble_probs))
@@ -502,6 +695,26 @@ def main():
             st.info("Click 'Train/Retrain Models' to start")
         
         st.markdown("---")
+        st.markdown("### 🤖 Models Used")
+        if st.session_state.models_trained:
+            model_names = {
+                'lr': 'Logistic Regression',
+                'rf': 'Random Forest',
+                'mlp': 'MLP Neural Network',
+                'gnb': 'Multinomial Naive Bayes',
+                'dt': 'Decision Tree',
+                'knn': 'K-Nearest Neighbors'
+            }
+            
+            models_text = ""
+            for name in model_names.values():
+                models_text += f"• {name}\n"
+            
+            st.info(models_text)
+        else:
+            st.info("Models will be shown after training")
+        
+        st.markdown("---")
         st.markdown("### ℹ️ About")
         st.info("""
         This app uses advanced machine learning with:
@@ -565,6 +778,26 @@ def main():
                     # Display results
                     st.markdown("---")
                     st.markdown("## 🎯 Prediction Results")
+                    
+                    # Display which models are being used (simple text format)
+                    st.markdown("### 🤖 Models Used for Prediction")
+                    
+                    model_names = {
+                        'lr': 'Logistic Regression',
+                        'rf': 'Random Forest',
+                        'mlp': 'MLP Neural Network',
+                        'gnb': 'Multinomial Naive Bayes',
+                        'dt': 'Decision Tree',
+                        'knn': 'K-Nearest Neighbors'
+                    }
+                    
+                    models_text = "**6-Model Weighted Ensemble:**\n\n"
+                    for key, name in model_names.items():
+                        models_text += f"• {name}\n"
+                    
+                    st.markdown(models_text)
+                    
+                    st.markdown("---")
                     
                     # Main prediction card
                     confidence_pct = result['confidence'] * 100
