@@ -11,6 +11,7 @@
 5. [Methodology / Model Description](#5-methodology--model-description)
 6. [Implementation Details](#6-implementation-details)
 7. [Results & Evaluation](#7-results--evaluation)
+   - [7.6 Smart Recommendation System for Students](#76-smart-recommendation-system-for-students)
 8. [Conclusion](#8-conclusion)
 9. [Future Work & Limitations](#9-future-work--limitations)
 
@@ -18,7 +19,7 @@
 
 ## 1. Introduction
 
-Resume categorization is a critical task in human resource management and recruitment processes. With the increasing volume of job applications received by organizations daily, manual categorization of resumes has become a bottleneck that is time-consuming, error-prone, and difficult to scale. This project addresses the need for an automated system that can accurately classify resumes into appropriate job categories based on their content.
+Resume categorization is a critical task in human resource management and recruitment processes. With the increasing volume of job applications received by organizations daily, manual categorization of resumes has become a bottleneck that is time-consuming, error-prone, and difficult to scale. This project addresses the need for an automated system that can accurately classify resumes into appropriate job categories based on their content. Additionally, the system includes an intelligent recommendation engine that provides students with career guidance including top companies, job platforms, salary information, and required skills for each job category.
 
 ### Need of the Problem
 
@@ -33,6 +34,8 @@ The need for such a system arises from several practical challenges:
 - **Accuracy**: Machine learning models can process and analyze large volumes of text data more accurately than manual screening, reducing misclassification errors.
 
 - **Cost Reduction**: Automating the initial screening process can significantly reduce operational costs and free up HR professionals for more strategic tasks.
+
+- **Career Guidance**: Students and job seekers need personalized recommendations about which companies to apply to, which job platforms to use, expected salary ranges, and key skills to develop for their career path.
 
 This project aims to develop an intelligent system that leverages Natural Language Processing (NLP) and machine learning techniques to automatically categorize resumes into 25 distinct job domains, thereby streamlining the recruitment process and improving efficiency.
 
@@ -70,6 +73,7 @@ The primary objectives of this project are:
    - To create a production-ready system deployable as a web application
    - To provide confidence scores and top-3 category predictions for transparency
    - To demonstrate the effectiveness of NLP techniques in HR automation
+   - To develop an intelligent recommendation system providing career guidance including top companies, job platforms, salary information, and required skills for students
 
 ### 3.2 Existing Approaches
 
@@ -336,6 +340,115 @@ Results showed:
 
 4. **Consistent Performance**: All models performed exceptionally well (>97%), suggesting well-structured dataset and clear category distinctions
 
+### 7.6 Smart Recommendation System for Students
+
+Beyond resume categorization, the system includes an **intelligent job recommendation engine** that provides comprehensive career guidance to students and job seekers. This feature transforms the system from a simple classifier into a complete career assistance tool.
+
+#### 7.6.1 System Overview
+
+After predicting a resume's job category, the system automatically provides personalized recommendations including:
+- **Top 10 Companies** actively hiring in that field
+- **Best Job Platforms** for finding relevant opportunities
+- **Average Salary Range** for the position
+- **Key Skills to Master** for career advancement
+
+#### 7.6.2 Recommendation Database
+
+The system maintains a comprehensive database covering all **25 job categories** with curated information:
+
+| Category | Top Companies | Job Platforms | Avg Salary | Key Skills |
+|----------|---------------|---------------|------------|------------|
+| **Data Science** | Google, Amazon, Microsoft, IBM, Meta, Apple, Netflix | Kaggle Jobs, DataJobs, LinkedIn, Indeed | $120K - $180K | Python, R, SQL, Machine Learning, TensorFlow, PyTorch |
+| **Python Developer** | Google, Dropbox, Instagram, Spotify, Disney, NASA | Python.org Jobs, Stack Overflow, LinkedIn | $95K - $145K | Python, Django, Flask, FastAPI, AWS, Docker |
+| **Java Developer** | Oracle, Amazon, Google, Microsoft, IBM, Netflix | JavaJobs, Stack Overflow, LinkedIn | $90K - $140K | Java, Spring Boot, Hibernate, Microservices |
+| **DevOps Engineer** | Amazon AWS, Google Cloud, Microsoft Azure, Docker, Kubernetes | DevOps.com, Stack Overflow, LinkedIn | $110K - $170K | AWS, Docker, Kubernetes, Jenkins, CI/CD |
+| **HR** | Google, Microsoft, Salesforce, Workday, LinkedIn | LinkedIn, Indeed, Glassdoor, SHRM | $60K - $110K | Recruitment, HRIS, Talent Management, Analytics |
+
+*[Complete database covers all 25 categories]*
+
+#### 7.6.3 Implementation Details
+
+**Data Structure:**
+```python
+job_recommendations = {
+    'Category Name': {
+        'top_companies': [List of 10 companies],
+        'job_platforms': [List of 8 platforms],
+        'avg_salary': 'Salary range string',
+        'skills_needed': [List of key skills]
+    }
+}
+```
+
+**Integration with Prediction System:**
+- The recommendation system is seamlessly integrated with the prediction pipeline
+- After category prediction, recommendations are automatically retrieved
+- Function `get_job_recommendations()` combines prediction with career guidance
+- Returns comprehensive output including predictions, confidence scores, and recommendations
+
+#### 7.6.4 Features and Benefits
+
+**For Students:**
+1. **Career Guidance**: Understand which companies hire in their field
+2. **Skill Development**: Know which skills to focus on for career growth
+3. **Salary Expectations**: Set realistic salary expectations
+4. **Job Search Strategy**: Know where to look for opportunities
+
+**For the System:**
+1. **Value Addition**: Transforms classification into actionable insights
+2. **User Engagement**: Provides practical value beyond prediction
+3. **Completeness**: Offers end-to-end career assistance
+4. **Practical Utility**: Helps users take next steps after categorization
+
+#### 7.6.5 Example Output
+
+When a resume is categorized as "Data Science", the system provides:
+
+**Top 10 Recommended Companies:**
+1. Google
+2. Amazon
+3. Microsoft
+4. IBM
+5. Meta (Facebook)
+6. Apple
+7. Netflix
+8. LinkedIn
+9. Tesla
+10. Adobe
+
+**Best Job Platforms:**
+1. Kaggle Jobs
+2. DataJobs
+3. LinkedIn
+4. Indeed
+5. Glassdoor
+6. AngelList
+7. Stack Overflow Jobs
+8. Hired
+
+**Average Salary Range:** $120,000 - $180,000
+
+**Key Skills to Master:**
+Python, R, SQL, Machine Learning, Deep Learning, TensorFlow, PyTorch, Data Analysis
+
+#### 7.6.6 Coverage and Completeness
+
+- **Total Categories Covered**: 25/25 (100% coverage)
+- **Companies per Category**: 10 top companies
+- **Job Platforms per Category**: 8 specialized platforms
+- **Skills per Category**: 6-10 essential skills
+- **Salary Information**: Market-based salary ranges for each category
+
+#### 7.6.7 Impact
+
+This recommendation system significantly enhances the project's value by:
+- **Providing Actionable Insights**: Users receive not just predictions but actionable career guidance
+- **Supporting Career Development**: Helps students understand career paths and requirements
+- **Improving User Experience**: Makes the system more useful and engaging
+- **Demonstrating Practical Application**: Shows real-world utility beyond academic classification
+
+**[INSERT DIAGRAM: Recommendation System Flow - Prediction → Category → Recommendations]**
+
 ---
 
 ## 8. Conclusion
@@ -349,10 +462,27 @@ This project successfully developed an automated resume categorization system th
 - ✅ Achieved perfect classification (100%) with MLP Neural Network
 - ✅ Developed a production-ready system deployable as a web application
 - ✅ Demonstrated the effectiveness of NLP and ML techniques in HR automation
+- ✅ **Implemented Smart Recommendation System** providing career guidance including:
+  - Top 10 companies for each category
+  - Best job platforms for job search
+  - Average salary ranges
+  - Key skills to master for career advancement
 
 ### Impact
 
 The results demonstrate that automated resume categorization is feasible and can significantly improve efficiency in HR processes. The high accuracy rates achieved suggest that the system is suitable for real-world deployment and can provide substantial time savings in resume screening processes.
+
+**Beyond Classification**: The integrated Smart Recommendation System adds significant value by providing actionable career guidance. Students and job seekers receive not just category predictions, but comprehensive information about:
+- Where to apply (top companies)
+- Where to search (job platforms)
+- What to expect (salary ranges)
+- What to learn (key skills)
+
+This transforms the system from a simple classifier into a complete career assistance platform, making it highly valuable for educational institutions, career counseling centers, and job seekers. The Smart Job Recommendation System bridges the gap between prediction and action, enabling students to make informed career decisions with data-driven insights about companies, platforms, salaries, and skill requirements.
+
+### Practical Applications
+
+The system finds practical applications in educational institutions, HR departments, and career centers, with the Smart Job Recommendation System providing actionable career insights including top companies, job platforms, salary information, and required skills to enhance user experience.
 
 ### Technical Contributions
 
@@ -360,6 +490,7 @@ The results demonstrate that automated resume categorization is feasible and can
 - Showed value of TF-IDF feature engineering approach
 - Established benchmark performance for resume classification
 - Validated ensemble methods for production systems
+- Developed an integrated Smart Job Recommendation System that combines ML predictions with curated career guidance data, demonstrating how classification systems can be enhanced with actionable insights for end users
 
 ---
 
