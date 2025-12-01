@@ -683,8 +683,13 @@ def main():
         st.header("⚙️ Settings")
         
         if st.button("🔄 Train/Retrain Models", use_container_width=True):
-            train_models()
-            st.success("✅ Models trained successfully!")
+            with st.spinner("Training models... This may take a few minutes."):
+                success = train_models()
+                if success:
+                    st.success("✅ Models trained successfully! Redirecting to prediction interface...")
+                    import time
+                    time.sleep(1)  # Brief pause to show success message
+                    st.rerun()
         
         st.markdown("---")
         st.markdown("### 📊 Model Status")
@@ -727,7 +732,13 @@ def main():
     if not st.session_state.models_trained:
         st.warning("⚠️ Please train the models first using the sidebar button.")
         if st.button("🚀 Train Models Now", use_container_width=True):
-            train_models()
+            with st.spinner("Training models... This may take a few minutes."):
+                success = train_models()
+                if success:
+                    st.success("✅ Models trained successfully! Redirecting to prediction interface...")
+                    import time
+                    time.sleep(1)  # Brief pause to show success message
+                    st.rerun()
     else:
         # File upload section
         st.markdown("### 📤 Upload Your Resume")
